@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>__NAME__</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='26' fill='none' stroke='%2335c8ff' stroke-width='6'/%3E%3Ccircle cx='32' cy='32' r='10' fill='%2335c8ff'/%3E%3C/svg%3E">
+<style>
+  :root {
+    --bg: #050b12; --panel: rgba(18, 38, 54, .42); --line: rgba(88, 200, 255, .22);
+    --ink: #d9f3ff; --dim: #6f93a8; --accent: #35c8ff; --accent-rgb: 53, 200, 255;
+    --mono: "Cascadia Mono", Consolas, "Courier New", monospace;
+    --sans: "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+  }
+  body[data-status="listening"], body[data-status="dictating"] { --accent: #4dffb8; --accent-rgb: 77, 255, 184; }
+  body[data-status="transcribing"], body[data-status="thinking"] { --accent: #ffb547; --accent-rgb: 255, 181, 71; }
+  body[data-status="muted"], body[data-status="offline"] { --accent: #7d8b96; --accent-rgb: 125, 139, 150; }
+  body[data-status="starting"] { --accent: #8aa9ff; --accent-rgb: 138, 169, 255; }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background:
+      radial-gradient(120% 70% at 50% 18%, rgba(var(--accent-rgb), .13), transparent 62%),
+      repeating-linear-gradient(0deg, rgba(255,255,255,.018) 0 1px, transparent 1px 3px),
+      var(--bg);
+    color: var(--ink); font-family: var(--sans); font-size: 14px; overflow: hidden;
+    display: flex; flex-direction: column; transition: --accent .4s; user-select: none;
+  }
+  header { display: flex; align-items: baseline; justify-content: space-between; padding: 14px 18px 0; }
+  .brand { font-family: var(--mono); text-transform: uppercase; letter-spacing: .42em; font-size: 13px; color: var(--accent); text-shadow: 0 0 12px rgba(var(--accent-rgb), .7); }
+  .clock { font-family: var(--mono); font-size: 12px; color: var(--dim); letter-spacing: .08em; }
+  .stage { position: relative; flex: 0 0 auto; height: min(46vh, 92vw); min-height: 190px; }
+  canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .status { position: absolute; left: 0; right: 0; bottom: 2px; text-align: center; pointer-events: none; }
+  .status b { display: block; font-family: var(--mono); font-weight: 400; letter-spacing: .5em; font-size: 12px; padding-left: .5em;
+              color: var(--accent); text-shadow: 0 0 10px rgba(var(--accent-rgb), .8); }
+  .status span { display: block; margin-top: 4px; font-size: 11px; color: var(--dim); min-height: 14px; }
+  .gauges { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; padding: 10px 18px 4px; }
+  .gauge { font-family: var(--mono); font-size: 10px; color: var(--dim); letter-spacing: .1em; }
+  .gauge i { display: block; height: 3px; margin: 5px 0 4px; background: rgba(var(--accent-rgb), .14); position: relative; overflow: hidden; }
+  .gauge i::after { content: ""; position: absolute; inset: 0; width: var(--v, 0%); background: var(--accent); box-shadow: 0 0 8px var(--accent); transition: width .8s ease; }
+  .gauge em { font-style: normal; color: var(--ink); font-size: 12px; font-variant-numeric: tabular-nums; }
+  .log { flex: 1 1 0; min-height: 60px; margin: 8px 14px 0; padding: 10px 12px; overflow-y: auto; user-select: text;
+         background: var(--panel); border: 1px solid var(--line); border-radius: 4px;
+         clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px)); }
+  .log::-webkit-scrollbar { width: 6px; } .log::-webkit-scrollbar-thumb { background: rgba(var(--accent-rgb), .3); }
+  .msg { margin: 0 0 9px; line-height: 1.45; animation: rise .25s ease; overflow-wrap: anywhere; }
+  .msg small { display: block; font-family: var(--mono); font-size: 9.5px; letter-spacing: .22em; color: var(--dim); margin-bottom: 1px; }
+  .msg.you { color: #a9c4d3; } .msg.jarvis small { color: var(--accent); }
+  .msg.tool { font-family: var(--mono); font-size: 11px; color: var(--dim); margin: -3px 0 7px; }
+  .msg.tool::before { content: "▸ "; color: var(--accent); }
+  .empty { color: var(--dim); font-size: 12.5px; line-height: 1.6; }
+  .empty kbd { font-family: var(--mono); font-size: 11px; color: var(--ink); border: 1px solid var(--line); padding: 1px 5px; border-radius: 3px; }
+  @keyframes rise { from { opacity: 0; transform: translateY(5px); } }
+  form { display: flex; gap: 8px; padding: 10px 14px 0; }
+  input { flex: 1; min-width: 0; background: rgba(4, 14, 22, .8); color: var(--ink); border: 1px solid var(--line); border-radius: 3px;
+          padding: 9px 11px; font: inherit; outline: none; user-select: text; }
+  input::placeholder { color: #4d6b7d; }
+  input:focus { border-color: var(--accent); box-shadow: 0 0 0 1px rgba(var(--accent-rgb), .35), 0 0 14px rgba(var(--accent-rgb), .18); }
+  button { font-family: var(--mono); font-size: 11px; letter-spacing: .16em; color: var(--accent); cursor: pointer;
+           background: rgba(var(--accent-rgb), .07); border: 1px solid rgba(var(--accent-rgb), .45); border-radius: 3px; padding: 8px 10px; }
+  button:hover { background: rgba(var(--accent-rgb), .18); }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  button.on { background: var(--accent); color: #041018; }
+  .bar { display: flex; gap: 8px; padding: 9px 14px 14px; }
+  .bar button { flex: 1; } .bar .quiet { flex: 0 0 auto; color: var(--dim); border-color: var(--line); background: none; }
+  @media (max-height: 560px) { .gauges { display: none; } }
+  @media (prefers-reduced-motion: reduce) { .msg { animation: none; } }
+</style>
+</head>
+<body data-status="starting">
+  <header><div class="brand">__NAME__</div><div class="clock" id="clock"></div></header>
+  <div class="stage">
+    <canvas id="orb" aria-hidden="true"></canvas>
+    <div class="status" aria-live="polite"><b id="status">STARTING</b><span id="detail"></span></div>
+  </div>
+  <div class="gauges" id="gauges"></div>
+  <div class="log" id="log"><div class="empty" id="empty"></div></div>
+  <form id="form" autocomplete="off">
+    <input id="text" placeholder="Type a request…" aria-label="Type a request" maxlength="2000">
+    <button type="submit">SEND</button>
+  </form>
+  <div class="bar">
+    <button id="talk" title="Start listening without the wake word">TALK</button>
+    <button id="mute" title="Stop listening for the wake word">MUTE</button>
+    <button id="stop" title="Stop the current reply">STOP</button>
+    <button id="quit" class="quiet" title="Shut Jarvis down">QUIT</button>
+  </div>
+<script>
+const TOKEN = "__TOKEN__", NAME = "__NAME__";
+const $ = id => document.getElementById(id);
+const LABEL = { starting: "STARTING", idle: "STANDBY", listening: "LISTENING", transcribing: "PROCESSING", thinking: "THINKING",
+                speaking: "SPEAKING", muted: "MUTED", offline: "OFFLINE", dictating: "DICTATING" };
+const state = { status: "starting", level: 0, since: 0, failures: 0 };
+let current = null;  // the reply line being written
+
+function api(path, body) {
+  return fetch(path, { method: body ? "POST" : "GET", headers: { "X-Jarvis-Token": TOKEN, "Content-Type": "application/json" },
+                       body: body ? JSON.stringify(body) : undefined });
+}
+function line(cls, who, text) {
+  $("empty")?.remove();
+  const el = document.createElement("div");
+  el.className = "msg " + cls;
+  if (who) { const s = document.createElement("small"); s.textContent = who; el.append(s); }
+  const t = document.createElement("span"); t.textContent = text; el.append(t);
+  const log = $("log"), stick = log.scrollHeight - log.scrollTop - log.clientHeight < 60;
+  log.append(el);
+  while (log.children.length > 120) log.firstChild.remove();
+  if (stick) log.scrollTop = log.scrollHeight;
+  return t;
+}
+function onEvent(e) {
+  if (e.kind === "heard") { current = null; line("you", "YOU · " + e.at, e.text); }
+  else if (e.kind === "tool") { current = null; line("tool", "", e.text.replace(/_/g, " ")); }
+  else if (e.kind === "say") {
+    if (!current) current = line("jarvis", NAME.toUpperCase() + " · " + e.at, "");
+    current.textContent += e.text;
+    const log = $("log"); log.scrollTop = log.scrollHeight;
+  }
+  else if (e.kind === "done") current = null;
+}
+function gauges(s) {
+  const items = [["CPU", s.cpu], ["RAM", s.ram], ["GPU", s.gpu], ["VRAM", s.vram], [s.plugged ? "PWR" : "BAT", s.battery]];
+  $("gauges").innerHTML = items.filter(i => i[1] !== undefined).map(([k, v]) =>
+    `<div class="gauge">${k}<i style="--v:${v}%"></i><em>${v}%</em></div>`).join("");
+}
+async function poll() {
+  try {
+    const r = await api("/state?since=" + state.since);
+    if (!r.ok) throw new Error(r.status);
+    const s = await r.json();
+    state.failures = 0; state.level = s.level; state.since = s.seq;
+    if (s.status !== state.status) { state.status = s.status; document.body.dataset.status = s.status; $("status").textContent = LABEL[s.status] || s.status.toUpperCase(); }
+    $("detail").textContent = s.status === "starting" ? s.detail + "…" : s.status === "idle" ? `Say "Hey ${NAME}"` + (s.hotkey ? ` or press ${s.hotkey}` : "") : s.status === "dictating" ? `Typing what you say · say "stop dictation" to finish` : s.brain || "";
+    if ($("empty") && s.status !== "starting") $("empty").innerHTML = `Say <kbd>Hey ${NAME}</kbd> and speak, press <kbd>TALK</kbd>, or type below.<br>Try: “open the calculator”, “what's the weather in Dhaka”, “set the volume to 30”, “remind me in 10 minutes to stretch”.`;
+    $("mute").classList.toggle("on", s.muted); $("mute").textContent = s.muted ? "UNMUTE" : "MUTE";
+    s.events.forEach(onEvent);
+    gauges(s.stats || {});
+  } catch (err) {
+    if (++state.failures > 8 && state.status !== "offline") {
+      state.status = "offline"; state.level = 0; document.body.dataset.status = "offline";
+      $("status").textContent = LABEL.offline; $("detail").textContent = "Jarvis has shut down. You can close this window.";
+    }
+    // If Jarvis was started again it has a new token: reload to pick it up and reconnect.
+    if (state.status === "offline") fetch("/", { cache: "no-store" }).then(r => { if (r.ok) location.reload(); }).catch(() => {});
+  }
+  setTimeout(poll, state.status === "offline" ? 2000 : 110);
+}
+$("form").addEventListener("submit", e => { e.preventDefault(); const t = $("text").value.trim(); if (t) { api("/ask", { text: t }); $("text").value = ""; } });
+for (const [id, name] of [["talk", "listen"], ["mute", "mute"], ["stop", "stop"]]) $(id).addEventListener("click", () => api("/action", { name }));
+$("quit").addEventListener("click", () => { if (confirm("Shut Jarvis down?")) api("/action", { name: "quit" }).then(() => setTimeout(() => window.close(), 600)); });
+setInterval(() => { $("clock").textContent = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }); }, 500);
+
+// ---------- the ring ----------
+const canvas = $("orb"), ctx = canvas.getContext("2d");
+const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+let W = 0, H = 0, smooth = 0, spin = 0, last = performance.now();
+const bars = new Float32Array(72);
+function resize() { const d = devicePixelRatio || 1; W = canvas.clientWidth; H = canvas.clientHeight; canvas.width = W * d; canvas.height = H * d; ctx.setTransform(d, 0, 0, d, 0, 0); }
+addEventListener("resize", resize); resize();
+function arc(r, a0, a1, width, alpha) { ctx.beginPath(); ctx.arc(0, 0, r, a0, a1); ctx.lineWidth = width; ctx.globalAlpha = alpha; ctx.stroke(); }
+function frame(now) {
+  const dt = Math.min((now - last) / 1000, .05); last = now;
+  const st = state.status, rgb = getComputedStyle(document.body).getPropertyValue("--accent-rgb").trim() || "53,200,255";
+  let target = state.level;
+  if (st === "speaking") target = .35 + .3 * Math.abs(Math.sin(now / 130) * Math.sin(now / 47));
+  if (st === "thinking" || st === "transcribing") target = .25 + .1 * Math.sin(now / 200);
+  if (st === "starting") target = .15 + .1 * Math.sin(now / 400);
+  smooth += (target - smooth) * Math.min(1, dt * 12);
+  const speed = { thinking: 2.6, transcribing: 2.2, listening: .9, speaking: 1.1, starting: 1.6, muted: .08, offline: 0 }[st] ?? .35;
+  if (!still) spin += dt * speed;
+  ctx.clearRect(0, 0, W, H);
+  ctx.save(); ctx.translate(W / 2, H / 2 - 8);
+  const R = Math.min(W, H - 30) * .40, col = `rgb(${rgb})`;
+  ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineCap = "butt";
+  // core glow
+  const g = ctx.createRadialGradient(0, 0, 0, 0, 0, R * (.55 + smooth * .5));
+  g.addColorStop(0, `rgba(${rgb},${.55 + smooth * .4})`); g.addColorStop(.35, `rgba(${rgb},${.16 + smooth * .2})`); g.addColorStop(1, `rgba(${rgb},0)`);
+  ctx.globalAlpha = 1; ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, R * 1.1, 0, 7); ctx.fill();
+  ctx.fillStyle = col; ctx.shadowColor = col; ctx.shadowBlur = 18;
+  ctx.globalAlpha = .9; ctx.beginPath(); ctx.arc(0, 0, R * (.10 + smooth * .07), 0, 7); ctx.fill();
+  // rings
+  arc(R * .30, 0, 7, 1, .35);
+  for (let i = 0; i < 3; i++) arc(R * .44, spin * 1.7 + i * 2.094, spin * 1.7 + i * 2.094 + 1.25, 3, .85);
+  for (let i = 0; i < 4; i++) arc(R * .58, -spin + i * 1.571, -spin + i * 1.571 + .95, 1.5, .55);
+  ctx.shadowBlur = 0;
+  arc(R * .72, spin * .6, spin * .6 + 4.4, 7, .16); arc(R * .72, spin * .6 + 4.7, spin * .6 + 5.9, 7, .45);
+  // level bars around the ring
+  for (let i = 0; i < bars.length; i++) {
+    const live = st === "listening" || st === "speaking" || st === "dictating" ? smooth * (.35 + .65 * Math.abs(Math.sin(i * 12.9898 + now / 90) * Math.cos(i * 4.1 + now / 61))) : smooth * .15;
+    bars[i] += (live - bars[i]) * Math.min(1, dt * 18);
+    const a = i / bars.length * Math.PI * 2 - Math.PI / 2, r0 = R * .84, r1 = r0 + R * (.03 + bars[i] * .30);
+    ctx.globalAlpha = .35 + bars[i] * .65; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(Math.cos(a) * r0, Math.sin(a) * r0); ctx.lineTo(Math.cos(a) * r1, Math.sin(a) * r1); ctx.stroke();
+  }
+  // outer tick marks
+  ctx.globalAlpha = .28; ctx.lineWidth = 1;
+  for (let i = 0; i < 120; i++) { const a = i / 120 * Math.PI * 2 + spin * .1, r0 = R * 1.2, r1 = r0 + (i % 10 ? 4 : 10);
+    ctx.beginPath(); ctx.moveTo(Math.cos(a) * r0, Math.sin(a) * r0); ctx.lineTo(Math.cos(a) * r1, Math.sin(a) * r1); ctx.stroke(); }
+  ctx.restore(); ctx.globalAlpha = 1;
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+poll();
+</script>
+</body>
+</html>

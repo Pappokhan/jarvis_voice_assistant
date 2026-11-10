@@ -1,0 +1,40 @@
+# --- brain: free local model via Ollama (install Ollama separately), or Claude (cloud) ---
+requests
+ddgs
+anthropic
+python-dotenv
+PyYAML
+jsonschema
+
+# --- audio I/O ---
+numpy
+sounddevice
+soundfile
+
+# --- local models: wake word + speech-to-text ---
+openwakeword
+onnxruntime
+faster-whisper
+# CUDA runtime DLLs so faster-whisper can use the RTX 3050 (skipped automatically if unusable)
+nvidia-cublas-cu12
+nvidia-cudnn-cu12>=9,<10
+
+# --- voice (cloud neural TTS; falls back to offline Windows SAPI) ---
+edge-tts
+
+# --- PC control ---
+psutil
+pywin32
+comtypes
+pycaw
+screen-brightness-control
+PyAutoGUI
+Pillow
+pyperclip
+Send2Trash
+keyboard
+pystray
+
+# --- documents ---
+pypdf
+python-docx

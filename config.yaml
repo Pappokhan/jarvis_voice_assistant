@@ -1,0 +1,60 @@
+# J.A.R.V.I.S. configuration. Everything here is optional; defaults live in jarvis/config.py.
+
+assistant:
+  name: Jarvis
+  honorific: sir            # how Jarvis addresses you; set to "" for none
+  # After answering, listen again without the wake word?  questions = only when Jarvis asked you something
+  # (safest: a video or people talking are not taken as commands) | true = always | false = never
+  follow_up: questions
+  follow_up_seconds: 5
+  hotkey: ctrl+alt+j        # push-to-talk alternative to the wake word; "" disables
+
+ui:
+  enabled: true             # show the Jarvis window (it can be closed; Jarvis keeps running in the tray)
+  port: 8765                # local port the window talks to; another free one is used if this is taken
+
+brain:
+  provider: ollama         # ollama = free local model, no API key | claude = cloud, needs ANTHROPIC_API_KEY in .env
+  local:
+    model: qwen2.5:3b       # fits the 4 GB RTX 3050 fully (about 55 tokens/s). qwen2.5:7b is smarter but much slower here
+    url: http://127.0.0.1:11434   # not "localhost": on Windows that adds about 2 s to every request
+    num_ctx: 8192           # context window; the tool list alone uses about 4000 of it
+    think: false            # only for models with a thinking switch; qwen2.5 ignores it
+
+  # --- the settings below apply only when provider is claude ---
+  model: claude-opus-5-5    # cheaper/faster options: claude-sonnet-5-5, claude-haiku-5-5
+  effort: low               # low = snappiest voice replies; medium/high = more careful multi-step planning
+  web_search: true          # lets Jarvis look things up on the web
+  refusal_fallback: true    # if a request is declined by a safety filter, retry on a fallback model
+  session_idle_minutes: 15  # a quiet gap this long starts a fresh conversation (long-term memory is kept)
+
+wake_word:
+  model: hey_jarvis
+  threshold: 0.5            # raise if it triggers by accident, lower if it misses you
+
+stt:
+  # small.en fits on the GPU next to the local language model (0.35 GB) and answers in about 0.25 s
+  # instead of 2 s on the CPU. With provider: claude the GPU is free, so model: large-v3-turbo is the
+  # most accurate choice (1.6 GB download).
+  model: small.en           # used on the GPU
+  cpu_model: small.en       # used if the GPU is unavailable or runs out of memory
+  device: auto              # auto | cuda | cpu
+  language: en              # set to null to auto-detect (e.g. for Bangla), with model: small
+  # Words the recogniser should expect. Add the names of your own apps, people, places and projects here:
+  # this is the easiest way to make it understand you better.
+  hints: "Glossary: Jarvis, Chrome, Brave, Notepad, Calculator, File Explorer, Microsoft Word, WhatsApp message, Akash, YouTube, Spotify, Wi-Fi, Bluetooth, dictation, Dhaka."
+
+tts:
+  voice: en-GB-RyanNeural   # any Edge neural voice, e.g. en-US-GuyNeural, en-GB-ThomasNeural
+  rate: "+8%"
+  pitch: "-4Hz"
+
+audio:
+  input_device: null        # null = Windows default microphone; or a device index from `--devices`
+  output_device: null
+  energy_threshold: auto    # auto-calibrates to room noise; or a fixed number like 500
+  silence_seconds: 0.75     # pause that ends your command; raise it (1.0) if Jarvis cuts you off mid-sentence
+  max_command_seconds: 20
+
+safety:
+  confirm_dangerous: true   # ask "shall I proceed?" before deleting, overwriting, running shell commands, power actions
